@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Walmart Sales Prediction</title>
+    <style>
+        body {
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(to right, #d8efd3, #95d2b3, #95d2b3);
+            color: #0f2027;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background: rgba(241, 248, 232, 0.9);
+            /* #F1F8E8 with opacity */
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+            max-width: 800px;
+            /* Increased width to accommodate side-by-side charts */
+            width: 100%;
+        }
+
+        .container h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 2em;
+            color: #55ad9b;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            flex: 1;
+            margin-right: 10px;
+            font-size: 1em;
+            color: #0f2027;
+        }
+
+        .input-group input[type="text"],
+        .input-group input[type="date"] {
+            flex: 2;
+            padding: 10px;
+            border: 1px solid #95d2b3;
+            border-radius: 5px;
+            background: #d8efd3;
+            color: #0f2027;
+            font-size: 1em;
+        }
+
+        .radio-group {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .radio-group input[type="radio"] {
+            margin: 0 5px;
+            accent-color: #55ad9b;
+        }
+
+        .btn {
+            background-color: #55ad9b;
+            color: white;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.2em;
+            width: 100%;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn:hover {
+            background-color: #95d2b3;
+        }
+
+        .output {
+            margin-top: 30px;
+            padding: 20px;
+            background: rgba(216, 239, 211, 0.9);
+            /* #D8EFD3 with opacity */
+            border-radius: 10px;
+            color: #0f2027;
+            font-size: 1.1em;
+        }
+
+        .output p {
+            margin: 10px 0;
+        }
+
+        .chart-container {
+            margin-top: 30px;
+            display: none;
+            /* Hidden initially */
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: space-between;
+        }
+
+        .chart-box {
+            flex: 1 1 45%;
+            /* Each chart takes approximately 45% of the container */
+            min-width: 300px;
+            /* Ensure charts are not too small on smaller screens */
+        }
+
+        .chart-box canvas {
+            width: 100% !important;
+            height: 300px !important;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 700px) {
+            .chart-container {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .chart-box {
+                flex: 1 1 100%;
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <form id="predictionForm" action="/predict" method="post">
+            <h1>Walmart Sales Prediction</h1>
+            <div class="input-group">
+                <label for="store">Store:</label>
+                <input type="text" id="store" name="store" placeholder="Enter Store Number" required />
+            </div>
+            <div class="input-group">
+                <label for="size">Size:</label>
+                <input type="text" id="size" name="size" placeholder="Enter Store Size" required />
+            </div>
+            <div class="input-group">
+                <label for="department">Department:</label>
+                <input type="text" id="department" name="dept" placeholder="Enter Department Number" required />
+            </div>
+            <div class="input-group">
+                <label for="temperature">Temperature:</label>
+                <input type="text" id="temperature" name="temp" placeholder="Enter Temperature" required />
+            </div>
+            <div class="input-group">
+                <label for="date">Date:</label>
+                <input type="date" id="date" name="date" required />
+            </div>
+            <div class="radio-group">
+                <label for="isholiday">IsHoliday:</label>
+                <input type="radio" id="yes" name="isHolidayRadio" value="True" required />
+                <label for="yes">Yes</label>
+                <input type="radio" id="no" name="isHolidayRadio" value="False" required />
+                <label for="no">No</label>
+            </div>
+            <button type="submit" class="btn">Predict</button>
+        </form>
+        <div class="output">
+            {% if output is defined %}
+            <h2>Prediction Result:</h2>
+            <p><strong>Store:</strong> {{ store }}</p>
+            <p><strong>Department:</strong> {{ dept }}</p>
+            <p><strong>Month:</strong> {{ month_name }}</p>
+            <p><strong>Year:</strong> {{ year }}</p>
+            <p><strong>Predicted Weekly Sales:</strong> ${{ output }}</p>
+            {% endif %}
+        </div>
+
+        <div class="chart-container">
+            <div class="chart-box">
+                <canvas id="barChart"></canvas>
+            </div>
+            <div class="chart-box">
+                <canvas id="pieChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        document.getElementById('predictionForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            // Gather form data
+            const formData = new FormData(this);
+            const store = formData.get('store');
+            const size = formData.get('size');
+            const dept = formData.get('dept');
+            const temp = formData.get('temp');
+            const date = formData.get('date');
+            const isHoliday = formData.get('isHolidayRadio');
+
+            // TODO: Send data to backend and get prediction and chart data
+            // For demonstration, we'll use sample data
+            // You should replace this with actual AJAX request to your backend
+
+            // Example prediction result (replace with actual prediction)
+            const predictedSales = 160000; // Replace with actual predicted value
+
+            // Example data for Bar Chart (replace with actual data)
+            const barData = {
+                labels: ["Week 1", "Week 2", "Week 3", "Week 4"],
+                datasets: [
+                    {
+                        label: "Sales",
+                        data: [120000, 150000, 100000, 170000], // Replace with actual data
+                        backgroundColor: "#55ad9b",
+                    },
+                ],
+            };
+
+            // Example data for Pie Chart (replace with actual data)
+            const pieData = {
+                labels: ["Clothing", "Electronics", "Groceries", "Home Goods"],
+                datasets: [
+                    {
+                        data: [25, 35, 20, 20], // Replace with actual data
+                        backgroundColor: ["#95d2b3", "#55ad9b", "#d8efd3", "#0f2027"],
+                    },
+                ],
+            };
+
+            // Update the output section with prediction result
+            document.querySelector('.output').innerHTML = `
+          <h2>Prediction Result:</h2>
+          <p><strong>Store:</strong> ${store}</p>
+          <p><strong>Department:</strong> ${dept}</p>
+          <p><strong>Month:</strong> ${new Date(date).toLocaleString('default', { month: 'long' })}</p>
+          <p><strong>Year:</strong> ${new Date(date).getFullYear()}</p>
+          <p><strong>Predicted Weekly Sales:</strong> $${predictedSales.toLocaleString()}</p>
+        `;
+
+            // Show the chart container
+            document.querySelector('.chart-container').style.display = 'flex';
+
+            // Destroy existing charts if they exist to prevent duplication
+            if (window.barChartInstance) {
+                window.barChartInstance.destroy();
+            }
+            if (window.pieChartInstance) {
+                window.pieChartInstance.destroy();
+            }
+
+            // Bar Chart Configuration
+            const barConfig = {
+                type: "bar",
+                data: barData,
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: "top",
+                        },
+                        title: {
+                            display: true,
+                            text: 'Weekly Sales Bar Chart'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function (value) {
+                                    return '$' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                },
+            };
+
+            // Pie Chart Configuration
+            const pieConfig = {
+                type: "pie",
+                data: pieData,
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: "top",
+                        },
+                        title: {
+                            display: true,
+                            text: 'Sales Distribution Pie Chart'
+                        }
+                    },
+                },
+            };
+
+            // Render Charts
+            const barCtx = document.getElementById("barChart").getContext("2d");
+            window.barChartInstance = new Chart(barCtx, barConfig);
+
+            const pieCtx = document.getElementById("pieChart").getContext("2d");
+            window.pieChartInstance = new Chart(pieCtx, pieConfig);
+        });
+    </script>
+</body>
+
+</html>
