@@ -37,3 +37,8 @@ Future Enhancements:
 Explore more advanced machine learning techniques to improve prediction accuracy.
 Enhance data visualizations for deeper insights.
 Add additional factors like promotional events or regional differences to the prediction model.
+
+Demo Video
+A video demonstration of the project is available, showcasing the web interface, prediction model, and visualizations. The video walks through the steps of inputting data, making predictions, and viewing the sales forecasts using the bar graph and pie chart.
+
+Click here to watch the demo 
